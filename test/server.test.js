@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { hashPassword, verifyPassword } = require('../server');
 
 test.before(async () => require('../server').ready);
@@ -18,4 +20,10 @@ test('health endpoint responds successfully', async () => {
   const response = await fetch(`http://127.0.0.1:${address.port}/api/health`);
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true });
+});
+
+
+test('Render installs production dependencies during the build', () => {
+  const renderConfig = fs.readFileSync(path.join(__dirname, '..', 'render.yaml'), 'utf8');
+  assert.match(renderConfig, /^\s*buildCommand:\s*npm install --omit=dev\s*$/m);
 });
