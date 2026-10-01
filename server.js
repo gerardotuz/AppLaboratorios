@@ -22,8 +22,8 @@ function seedData() {
     const now = new Date().toISOString();
     return {
       users: [
-        { id: 'u1', name: 'Coordinación TI', email: 'admin@cbtis272.edu.mx', role: 'admin', password: hashPassword('Admin272!') },
-        { id: 'u2', name: 'Mtra. Laura Hernández', email: 'docente@cbtis272.edu.mx', role: 'teacher', password: hashPassword('Docente272!') }
+        { id: 'u1', name: 'Coordinación TI', email: 'admin@cbtis272.edu.mx', role: 'admin', active: true, password: hashPassword('Admin272!') },
+        { id: 'u2', name: 'Mtra. Laura Hernández', email: 'docente@cbtis272.edu.mx', role: 'teacher', active: true, password: hashPassword('Docente272!') }
       ],
       tickets: [
         { id: 'CBT-024', title: 'Equipo no enciende', category: 'Falla de hardware', description: 'El equipo no responde al botón de encendido.', lab: 'Laboratorio 1', equipment: 'PC-15', priority: 'Alta', status: 'Recibido', authorId: 'u2', author: 'Mtra. Laura Hernández', createdAt: now, updatedAt: now, history: [{ status: 'Recibido', note: 'Reporte creado', by: 'Mtra. Laura Hernández', at: now }] },
@@ -72,12 +72,13 @@ async function api(req, res, url) {
   if (url.pathname === '/api/login' && req.method === 'POST') {
     const data = await body(req);
     const user = await database.findUser(clean(data.email).toLowerCase());
-    if (!user || !verifyPassword(String(data.password || ''), user.password)) return json(res, 401, { error: 'Correo o contraseña incorrectos' });
+     if (!user || user.active === false || !verifyPassword(String(data.password || ''), user.password)) return json(res, 401, { error: 'Correo o contraseña incorrectos' });
     const safe = { id: user.id, name: user.name, email: user.email, role: user.role };
     return json(res, 200, { token: tokenFor(user), user: safe });
   }
   const user = await authenticate(req);
   if (!user) return json(res, 401, { error: 'Sesión no válida o vencida' });
+   if (user.active === false) return json(res, 403, { error: 'Esta cuenta está desactivada' });
   if (url.pathname === '/api/events' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
     res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
@@ -87,6 +88,35 @@ async function api(req, res, url) {
     let tickets = await database.listTickets();
     if (user.role !== 'admin') tickets = tickets.filter(t => t.authorId === user.id);
     return json(res, 200, { tickets: tickets.sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)) });
+  }
+  if (url.pathname === '/api/users' && req.method === 'GET') {
+    if (user.role !== 'admin') return json(res, 403, { error: 'Solo un administrador puede gestionar usuarios' });
+    return json(res, 200, { users: await database.listUsers() });
+  }
+  if (url.pathname === '/api/users' && req.method === 'POST') {
+    if (user.role !== 'admin') return json(res, 403, { error: 'Solo un administrador puede gestionar usuarios' });
+    const data = await body(req);
+    const name = clean(data.name, 100), email = clean(data.email, 160).toLowerCase();
+    const role = data.role === 'admin' ? 'admin' : 'teacher';
+    if (!name || !/^\S+@\S+\.\S+$/.test(email) || String(data.password || '').length < 8) return json(res, 400, { error: 'Ingresa nombre, correo válido y contraseña de al menos 8 caracteres' });
+    if (await database.findUser(email)) return json(res, 409, { error: 'Ya existe una cuenta con ese correo' });
+    const newUser = { id: crypto.randomUUID(), name, email, role, active: true, password: hashPassword(String(data.password)) };
+    return json(res, 201, { user: await database.createUser(newUser) });
+  }
+  const userMatch = url.pathname.match(/^\/api\/users\/([^/]+)$/);
+  if (userMatch && req.method === 'PATCH') {
+    if (user.role !== 'admin') return json(res, 403, { error: 'Solo un administrador puede gestionar usuarios' });
+    const data = await body(req); const target = await database.findUserById(userMatch[1]);
+    if (!target) return json(res, 404, { error: 'Usuario no encontrado' });
+    const changes = {};
+    if (data.name !== undefined) { changes.name = clean(data.name, 100); if (!changes.name) return json(res, 400, { error: 'El nombre es obligatorio' }); }
+    if (data.role !== undefined) { if (!['admin','teacher'].includes(data.role)) return json(res, 400, { error: 'Rol no válido' }); changes.role = data.role; }
+    if (data.active !== undefined) {
+      if (target.id === user.id && data.active === false) return json(res, 400, { error: 'No puedes desactivar tu propia cuenta' });
+      changes.active = Boolean(data.active);
+    }
+    if (data.password) { if (String(data.password).length < 8) return json(res, 400, { error: 'La contraseña debe tener al menos 8 caracteres' }); changes.password = hashPassword(String(data.password)); }
+    return json(res, 200, { user: await database.updateUser(target.id, changes) });
   }
   if (url.pathname === '/api/tickets' && req.method === 'POST') {
     const data = await body(req);
