@@ -27,8 +27,11 @@ test('home screen icon and web app manifest are served with the correct metadata
 
   const page = await fetch(base);
   const html = await page.text();
-  assert.match(html, /rel="apple-touch-icon" href="\/apple-touch-icon\.png"/);
+  assert.match(html, /rel="apple-touch-icon" sizes="1080x1080" href="\/apple-touch-icon\.png"/);
   assert.match(html, /rel="manifest" href="\/site\.webmanifest"/);
+   const logo = await fetch(`${base}/aguila.png`);
+  assert.equal(logo.status, 200);
+  assert.equal(logo.headers.get('content-type'), 'image/png');
 
   const icon = await fetch(`${base}/apple-touch-icon.png`);
   assert.equal(icon.status, 200);
