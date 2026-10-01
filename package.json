@@ -1,0 +1,14 @@
+{
+  "name": "cbtis-272-soporte",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mesa de ayuda y reporte de incidencias de los laboratorios del CBTis 272",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "mongodb": "^6.20.0"
+  }
+}
