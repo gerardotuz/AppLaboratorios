@@ -21,6 +21,29 @@ test('health endpoint responds successfully', async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true });
 });
+test('administrators can create, list and deactivate users', async () => {
+  const address = require('../server').server.address();
+  const base = `http://127.0.0.1:${address.port}`;
+  const login = await fetch(`${base}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@cbtis272.edu.mx', password: 'Admin272!' }) });
+  assert.equal(login.status, 200);
+  const { token } = await login.json();
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const email = `docente.${Date.now()}@cbtis272.edu.mx`;
+  const created = await fetch(`${base}/api/users`, { method: 'POST', headers, body: JSON.stringify({ name: 'Docente de Prueba', email, role: 'teacher', password: 'Temporal272!' }) });
+  assert.equal(created.status, 201);
+  const { user } = await created.json();
+  assert.equal(user.email, email);
+  assert.equal(user.password, undefined);
+
+  const updated = await fetch(`${base}/api/users/${user.id}`, { method: 'PATCH', headers, body: JSON.stringify({ active: false }) });
+  assert.equal(updated.status, 200);
+  assert.equal((await updated.json()).user.active, false);
+
+  const users = await fetch(`${base}/api/users`, { headers });
+  assert.equal(users.status, 200);
+  assert.ok((await users.json()).users.some(item => item.id === user.id && item.active === false));
+});
+
 
 
 test('Render installs production dependencies during the build', () => {
