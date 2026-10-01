@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { hashPassword, verifyPassword } = require('../server');
-
+const { configuredMongoUri } = require('../database');
 test.before(async () => require('../server').ready);
 test.after(async () => { require('../server').server.close(); await require('../server').closeDatabase(); });
 
@@ -26,4 +26,17 @@ test('health endpoint responds successfully', async () => {
 test('Render installs production dependencies during the build', () => {
   const renderConfig = fs.readFileSync(path.join(__dirname, '..', 'render.yaml'), 'utf8');
   assert.match(renderConfig, /^\s*buildCommand:\s*npm install --omit=dev\s*$/m);
+});
+
+
+test('MongoDB Atlas example URI is not used as a real connection string', () => {
+  const previous = process.env.MONGODB_URI;
+  process.env.MONGODB_URI = 'mongodb+srv://USUARIO:CONTRASENA@cluster.mongodb.net/?retryWrites=true&w=majority';
+  assert.equal(configuredMongoUri(), null);
+
+  process.env.MONGODB_URI = 'mongodb+srv://app:secret@production.abc12.mongodb.net/?retryWrites=true&w=majority';
+  assert.equal(configuredMongoUri(), process.env.MONGODB_URI);
+
+  if (previous === undefined) delete process.env.MONGODB_URI;
+  else process.env.MONGODB_URI = previous;
 });
