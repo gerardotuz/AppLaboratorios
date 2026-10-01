@@ -49,6 +49,27 @@ async function findUser(email) {
 async function findUserById(id) {
   return mongo ? mongo.users.findOne({ id }) : localData.users.find(user => user.id === id);
 }
+async function listUsers() {
+  const projection = { _id: 0, password: 0 };
+  return mongo ? mongo.users.find({}, { projection }).sort({ name: 1 }).toArray() : localData.users.map(({ password, ...user }) => user);
+}
+async function createUser(user) {
+  if (mongo) await mongo.users.insertOne(user);
+  else { localData.users.push(user); persistLocal(); }
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
+async function updateUser(id, changes) {
+  if (mongo) {
+    const result = await mongo.users.findOneAndUpdate({ id }, { $set: changes }, { returnDocument: 'after', projection: { _id: 0, password: 0 } });
+    return result || null;
+  }
+  const user = localData.users.find(item => item.id === id);
+  if (!user) return null;
+  Object.assign(user, changes); persistLocal();
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
 async function listTickets() {
   return mongo ? mongo.tickets.find({}, { projection: { _id: 0 } }).sort({ updatedAt: -1 }).toArray() : [...localData.tickets];
 }
@@ -69,4 +90,4 @@ async function updateTicket(id, changes, historyItem) {
 function persistLocal() { fs.writeFileSync(DB_FILE, JSON.stringify(localData, null, 2)); }
 async function close() { if (mongo) await mongo.client.close(); }
 
-module.exports = { connect, findUser, findUserById, listTickets, createTicket, updateTicket, close, configuredMongoUri };
+module.exports = { connect, findUser, findUserById, listUsers, createUser, updateUser, listTickets, createTicket, updateTicket, close, configuredMongoUri };
