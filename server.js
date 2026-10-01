@@ -27,7 +27,7 @@ function seedData() {
       ],
       tickets: [
         { id: 'CBT-024', title: 'Equipo no enciende', category: 'Falla de hardware', description: 'El equipo no responde al botón de encendido.', lab: 'Laboratorio 1', equipment: 'PC-15', priority: 'Alta', status: 'Recibido', authorId: 'u2', author: 'Mtra. Laura Hernández', createdAt: now, updatedAt: now, history: [{ status: 'Recibido', note: 'Reporte creado', by: 'Mtra. Laura Hernández', at: now }] },
-        { id: 'CBT-023', title: 'Instalación de GeoGebra', category: 'Instalación de software', description: 'Se requiere para la clase del viernes.', lab: 'Laboratorio 2', equipment: 'PC-21', priority: 'Media', status: 'Atendido', authorId: 'u2', author: 'Mtra. Laura Hernández', createdAt: new Date(Date.now()-86400000).toISOString(), updatedAt: now, history: [{ status: 'Recibido', note: 'Reporte creado', by: 'Mtra. Laura Hernández', at: now }, { status: 'Atendido', note: 'Descarga programada', by: 'Coordinación TI', at: now }] }
+             { id: 'CBT-023', title: 'Instalación de GeoGebra', category: 'Instalación de software', description: 'Se requiere para la clase del viernes.', lab: 'Laboratorio 2', equipment: 'PC-21', priority: 'Media', status: 'Atendido', authorId: 'u2', author: 'Mtra. Laura Hernández', assignedAdminId: 'u1', assignedAdmin: 'Coordinación TI', createdAt: new Date(Date.now()-86400000).toISOString(), updatedAt: now, history: [{ status: 'Recibido', note: 'Reporte creado', by: 'Mtra. Laura Hernández', at: now }, { status: 'Atendido', note: 'Descarga programada', by: 'Coordinación TI', at: now }] }
       ]
     };
 }
@@ -88,6 +88,12 @@ async function api(req, res, url) {
     let tickets = await database.listTickets();
     if (user.role !== 'admin') tickets = tickets.filter(t => t.authorId === user.id);
     return json(res, 200, { tickets: tickets.sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)) });
+  }
+    if (url.pathname === '/api/admins' && req.method === 'GET') {
+    const admins = (await database.listUsers())
+      .filter(item => item.role === 'admin' && item.active !== false)
+      .map(({ id, name }) => ({ id, name }));
+    return json(res, 200, { admins });
   }
   if (url.pathname === '/api/users' && req.method === 'GET') {
     if (user.role !== 'admin') return json(res, 403, { error: 'Solo un administrador puede gestionar usuarios' });
