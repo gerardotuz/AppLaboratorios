@@ -150,7 +150,8 @@ async function api(req, res, url) {
   return json(res, 404, { error: 'Ruta no encontrada' });
 }
 
-const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.svg':'image/svg+xml' };
+const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.webmanifest':'application/manifest+json; charset=utf-8' };
+
 function staticFile(req, res, url) {
   const requested = url.pathname === '/' ? '/index.html' : url.pathname;
   const file = path.join(ROOT, 'public', path.normalize(requested).replace(/^(\.\.[/\\])+/, ''));
