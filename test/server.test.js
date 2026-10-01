@@ -21,6 +21,26 @@ test('health endpoint responds successfully', async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true });
 });
+test('home screen icon and web app manifest are served with the correct metadata', async () => {
+  const address = require('../server').server.address();
+  const base = `http://127.0.0.1:${address.port}`;
+
+  const page = await fetch(base);
+  const html = await page.text();
+  assert.match(html, /rel="apple-touch-icon" href="\/apple-touch-icon\.png"/);
+  assert.match(html, /rel="manifest" href="\/site\.webmanifest"/);
+
+  const icon = await fetch(`${base}/apple-touch-icon.png`);
+  assert.equal(icon.status, 200);
+  assert.equal(icon.headers.get('content-type'), 'image/png');
+
+  const manifestResponse = await fetch(`${base}/site.webmanifest`);
+  assert.equal(manifestResponse.status, 200);
+  assert.match(manifestResponse.headers.get('content-type'), /^application\/manifest\+json/);
+  const manifest = await manifestResponse.json();
+  assert.equal(manifest.short_name, 'Soporte 272');
+  assert.ok(manifest.icons.some(({ src }) => src === '/aguila.png'));
+});
 test('administrators can create, list and deactivate users', async () => {
   const address = require('../server').server.address();
   const base = `http://127.0.0.1:${address.port}`;
