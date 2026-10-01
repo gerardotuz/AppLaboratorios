@@ -43,7 +43,26 @@ test('administrators can create, list and deactivate users', async () => {
   assert.equal(users.status, 200);
   assert.ok((await users.json()).users.some(item => item.id === user.id && item.active === false));
 });
+test('tickets can be assigned only to active administrators', async () => {
+  const address = require('../server').server.address();
+  const base = `http://127.0.0.1:${address.port}`;
+  const login = await fetch(`${base}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@cbtis272.edu.mx', password: 'Admin272!' }) });
+  const { token, user } = await login.json();
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 
+  const adminsResponse = await fetch(`${base}/api/admins`, { headers });
+  assert.equal(adminsResponse.status, 200);
+  const { admins } = await adminsResponse.json();
+  assert.ok(admins.some(admin => admin.id === user.id && admin.name === user.name));
+
+  const ticketsResponse = await fetch(`${base}/api/tickets`, { headers });
+  const { tickets } = await ticketsResponse.json();
+  const updated = await fetch(`${base}/api/tickets/${tickets[0].id}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'Atendido', assignedAdminId: user.id, note: 'Asignación de prueba' }) });
+  assert.equal(updated.status, 200);
+  const { ticket } = await updated.json();
+  assert.equal(ticket.assignedAdminId, user.id);
+  assert.equal(ticket.assignedAdmin, user.name);
+});
 
 
 test('Render installs production dependencies during the build', () => {
