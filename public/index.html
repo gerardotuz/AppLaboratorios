@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123c69"><title>Soporte TI · CBTis 272</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="toast-region" aria-live="polite"></div>
+  <section id="login-view" class="login-shell">
+    <div class="login-brand">
+      <div class="brand-mark">272</div><div><b>CBTis 272</b><span>Mesa de ayuda</span></div>
+    </div>
+    <div class="welcome-copy"><span class="eyebrow">SOPORTE TECNOLÓGICO</span><h1>Tu laboratorio,<br><em>siempre funcionando.</em></h1><p>Reporta una incidencia en menos de un minuto y consulta su avance desde cualquier dispositivo.</p><div class="feature-row"><span>✓ Respuesta oportuna</span><span>✓ Seguimiento claro</span></div></div>
+    <form id="login-form" class="login-card">
+      <div class="mobile-brand">CBTis <b>272</b></div><h2>Bienvenido</h2><p>Ingresa con tu cuenta institucional</p>
+      <label>Correo electrónico<input id="email" type="email" autocomplete="username" placeholder="nombre@cbtis272.edu.mx" required></label>
+      <label>Contraseña<div class="password-wrap"><input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required><button type="button" id="show-password" aria-label="Mostrar contraseña">◉</button></div></label>
+      <div id="login-error" class="form-error" role="alert"></div><button class="primary full" type="submit">Iniciar sesión <span>→</span></button>
+      <div class="demo-box"><b>Acceso de demostración</b><button type="button" data-demo="teacher">Entrar como docente</button><button type="button" data-demo="admin">Entrar como administrador</button></div>
+    </form>
+    <small class="login-footer">Centro de Bachillerato Tecnológico industrial y de servicios No. 272</small>
+  </section>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="side-brand"><div class="brand-mark small">272</div><div><b>CBTis 272</b><span>Soporte TI</span></div></div>
+      <nav><button class="nav-link active" data-view="dashboard"><span>▦</span> Inicio</button><button class="nav-link" data-view="tickets"><span>▤</span> Mis tickets <i id="ticket-count">0</i></button><button class="nav-link" data-view="new"><span>＋</span> Nuevo reporte</button><button class="nav-link admin-only" data-view="manage"><span>◫</span> Gestionar tickets</button></nav>
+      <div class="help-card"><div>?</div><b>¿Necesitas ayuda?</b><span>Extensión 115<br>soporte@cbtis272.edu.mx</span></div>
+      <button id="logout" class="logout">↪ Cerrar sesión</button>
+    </aside>
+    <main>
+      <header><button id="menu-toggle" aria-label="Abrir menú">☰</button><div class="header-title"><span>Centro de soporte</span><b id="page-title">Panel principal</b></div><div class="header-actions"><button id="notification-button" class="icon-button" aria-label="Notificaciones">♢<i id="notification-dot"></i></button><div class="avatar" id="avatar">LH</div><div class="user-meta"><b id="user-name"></b><span id="user-role"></span></div></div></header>
+      <div class="content">
+        <section id="dashboard-view" class="view"></section>
+        <section id="tickets-view" class="view hidden"></section>
+        <section id="new-view" class="view hidden"></section>
+        <section id="manage-view" class="view hidden"></section>
+      </div>
+    </main>
+  </div>
+  <div id="ticket-modal" class="modal hidden" role="dialog" aria-modal="true"><div class="modal-card" id="modal-content"></div></div>
+  <script src="/app.js"></script>
+</body></html>

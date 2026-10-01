@@ -1,0 +1,78 @@
+const $ = (s, root=document) => root.querySelector(s);
+const $$ = (s, root=document) => [...root.querySelectorAll(s)];
+const state = { token: localStorage.getItem('cbtis_token'), user: JSON.parse(localStorage.getItem('cbtis_user') || 'null'), tickets: [], selectedEquipment: '', lab: 'Laboratorio 1', notifications: 0 };
+const statusClass = s => `status-${s.toLowerCase()}`;
+const formatDate = d => new Intl.DateTimeFormat('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(d));
+const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+
+async function request(path, options={}) {
+  const response = await fetch(path, { ...options, headers: { 'Content-Type':'application/json', ...(state.token ? {Authorization:`Bearer ${state.token}`} : {}), ...options.headers } });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Ocurrió un error');
+  return data;
+}
+function toast(title, message='') {
+  const node=document.createElement('div'); node.className='toast'; node.innerHTML=`<b>${escapeHtml(title)}</b><span>${escapeHtml(message)}</span>`;
+  $('#toast-region').append(node); setTimeout(()=>node.remove(),4500);
+}
+function initials(name){return name.split(' ').filter(x=>x.length>2).slice(0,2).map(x=>x[0]).join('').toUpperCase()}
+function saveSession(data){ state.token=data.token;state.user=data.user;localStorage.setItem('cbtis_token',data.token);localStorage.setItem('cbtis_user',JSON.stringify(data.user)); }
+function logout(){localStorage.removeItem('cbtis_token');localStorage.removeItem('cbtis_user');location.reload()}
+
+$('#show-password').onclick=()=>{const i=$('#password');i.type=i.type==='password'?'text':'password'};
+$$('[data-demo]').forEach(b=>b.onclick=()=>{const admin=b.dataset.demo==='admin';$('#email').value=admin?'admin@cbtis272.edu.mx':'docente@cbtis272.edu.mx';$('#password').value=admin?'Admin272!':'Docente272!';$('#login-form').requestSubmit()});
+$('#login-form').onsubmit=async e=>{e.preventDefault();$('#login-error').textContent='';try{const data=await request('/api/login',{method:'POST',body:JSON.stringify({email:$('#email').value,password:$('#password').value})});saveSession(data);await startApp()}catch(err){$('#login-error').textContent=err.message}};
+$('#logout').onclick=logout;
+$('#menu-toggle').onclick=()=>$('.sidebar').classList.toggle('open');
+$('#ticket-modal').onclick=e=>{if(e.target.id==='ticket-modal')closeModal()};
+
+async function startApp(){
+  $('#login-view').classList.add('hidden');$('#app').classList.remove('hidden');
+  $('#user-name').textContent=state.user.name;$('#user-role').textContent=state.user.role==='admin'?'Administrador':'Docente';$('#avatar').textContent=initials(state.user.name);
+  $$('.admin-only').forEach(x=>x.classList.toggle('hidden',state.user.role!=='admin'));
+  try{await loadTickets();connectEvents();showView('dashboard')}catch{logout()}
+}
+async function loadTickets(){state.tickets=(await request('/api/tickets')).tickets;$('#ticket-count').textContent=state.tickets.length}
+function connectEvents(){
+  const events=new EventSource(`/api/events?token=${encodeURIComponent(state.token)}`);
+  events.onmessage=async event=>{const data=JSON.parse(event.data);if(data.type!=='connected')await refreshWithAlert()};
+  // Cross-tab updates complement authenticated polling and provide instant alerts locally.
+  const channel='BroadcastChannel' in window?new BroadcastChannel('cbtis-tickets'):null;
+  if(channel)channel.onmessage=()=>refreshWithAlert();
+  state.channel=channel; setInterval(async()=>{try{const before=JSON.stringify(state.tickets);await loadTickets();if(before!==JSON.stringify(state.tickets))renderCurrent()}catch{}},15000);
+}
+async function refreshWithAlert(){await loadTickets();state.notifications++;$('#notification-dot').classList.remove('hidden');toast('Actualización de tickets','Hay nueva actividad en la mesa de ayuda.');renderCurrent()}
+function broadcast(){if(state.channel)state.channel.postMessage('refresh')}
+
+const titles={dashboard:'Panel principal',tickets:'Mis tickets',new:'Nuevo reporte',manage:'Gestión de tickets'};
+function showView(name){
+  if(name==='manage'&&state.user.role!=='admin')return;
+  $$('.view').forEach(v=>v.classList.add('hidden'));$(`#${name}-view`).classList.remove('hidden');$$('.nav-link').forEach(n=>n.classList.toggle('active',n.dataset.view===name));
+  $('#page-title').textContent=titles[name];$('.sidebar').classList.remove('open');state.current=name;renderCurrent();
+}
+$$('.nav-link').forEach(n=>n.onclick=()=>showView(n.dataset.view));
+function renderCurrent(){if(state.current==='dashboard')renderDashboard();if(state.current==='tickets')renderTickets(false);if(state.current==='manage')renderTickets(true);if(state.current==='new')renderNew()}
+function counts(){return {all:state.tickets.length,received:state.tickets.filter(t=>t.status==='Recibido').length,active:state.tickets.filter(t=>t.status==='Atendido').length,done:state.tickets.filter(t=>t.status==='Finalizado').length}}
+function renderDashboard(){const c=counts(), recent=state.tickets.slice(0,4);$('#dashboard-view').innerHTML=`
+  <div class="hero"><div><h1>Hola, ${escapeHtml(state.user.name.split(' ')[0])} 👋</h1><p>${state.user.role==='admin'?'Revisa y atiende las solicitudes pendientes del plantel.':'¿Encontraste un problema? Repórtalo y nosotros nos encargamos.'}</p></div><button data-go="${state.user.role==='admin'?'manage':'new'}">${state.user.role==='admin'?'Gestionar solicitudes':'＋ Crear nuevo reporte'}</button></div>
+  <div class="stats"><div class="stat-card"><div class="stat-icon">▤</div><div><b>${c.all}</b><span>Total de tickets</span></div></div><div class="stat-card"><div class="stat-icon">◷</div><div><b>${c.received}</b><span>Recibidos</span></div></div><div class="stat-card"><div class="stat-icon">⚙</div><div><b>${c.active}</b><span>En atención</span></div></div><div class="stat-card"><div class="stat-icon">✓</div><div><b>${c.done}</b><span>Finalizados</span></div></div></div>
+  <div class="section-head"><div><h2>Actividad reciente</h2><p>Últimos movimientos de soporte</p></div><button class="link-button" data-go="${state.user.role==='admin'?'manage':'tickets'}">Ver todos →</button></div>
+  <div class="dashboard-grid"><div class="panel ticket-list">${recent.length?recent.map(ticketRow).join(''):'<div class="empty">Aún no hay tickets.</div>'}</div><div class="panel"><h3 style="margin-top:0">Acciones rápidas</h3><div class="quick-actions"><button class="quick-action" data-go="new"><span>＋</span><div><b>Reportar incidencia</b><small>Registra una falla o solicitud</small></div></button><button class="quick-action" data-go="tickets"><span>⌕</span><div><b>Consultar seguimiento</b><small>Revisa el estado de tus tickets</small></div></button><button class="quick-action" data-go="new"><span>▦</span><div><b>Seleccionar equipo</b><small>Ubícalo en el mapa del laboratorio</small></div></button></div></div></div>`;
+  $$('[data-go]',$('#dashboard-view')).forEach(b=>b.onclick=()=>showView(b.dataset.go));$$('[data-id]',$('#dashboard-view')).forEach(x=>x.onclick=()=>openTicket(x.dataset.id));
+}
+function ticketRow(t){return `<div class="ticket-row" data-id="${t.id}"><div class="ticket-type">${t.category.includes('software')?'⬡':'⚙'}</div><div><h3>${escapeHtml(t.title)}</h3><p>${t.id} · ${escapeHtml(t.lab)} · ${escapeHtml(t.equipment)} · ${formatDate(t.updatedAt)}</p></div><span class="badge ${statusClass(t.status)}">${t.status}</span></div>`}
+function renderTickets(admin){const root=$(admin?'#manage-view':'#tickets-view');root.innerHTML=`<div class="page-intro"><h1>${admin?'Gestión de tickets':'Mis tickets'}</h1><p>${admin?'Administra y da seguimiento a las solicitudes del personal docente.':'Consulta el estado y el historial de tus reportes.'}</p></div><div class="toolbar"><input id="ticket-search" placeholder="Buscar por folio, asunto o equipo…"><select id="status-filter"><option value="">Todos los estados</option><option>Recibido</option><option>Atendido</option><option>Finalizado</option></select></div><div id="tickets-table"></div>`;
+  const draw=()=>{const q=$('#ticket-search',root).value.toLowerCase(),s=$('#status-filter',root).value;const rows=state.tickets.filter(t=>(!s||t.status===s)&&JSON.stringify(t).toLowerCase().includes(q));$('#tickets-table',root).innerHTML=rows.length?`<div class="table-wrap"><table><thead><tr><th>Folio</th><th>Solicitud</th><th>Ubicación</th><th>Prioridad</th><th>Actualizado</th><th>Estado</th></tr></thead><tbody>${rows.map(t=>`<tr data-id="${t.id}"><td class="ticket-id">${t.id}</td><td><b>${escapeHtml(t.title)}</b><br><small>${escapeHtml(t.author)}</small></td><td>${escapeHtml(t.lab)} · ${escapeHtml(t.equipment)}</td><td class="priority ${t.priority}">${t.priority}</td><td>${formatDate(t.updatedAt)}</td><td><span class="badge ${statusClass(t.status)}">${t.status}</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="panel empty">No se encontraron tickets con esos filtros.</div>';$$('[data-id]',root).forEach(x=>x.onclick=()=>openTicket(x.dataset.id))};
+  $('#ticket-search',root).oninput=draw;$('#status-filter',root).onchange=draw;draw();
+}
+function renderNew(){state.selectedEquipment='';$('#new-view').innerHTML=`<div class="page-intro"><h1>Nuevo reporte</h1><p>Describe la situación y selecciona el equipo directamente en el mapa.</p></div><div class="report-layout"><form id="report-form" class="report-form"><div class="form-grid"><div class="field full-field"><label>Asunto *</label><input name="title" maxlength="100" placeholder="Ej. El equipo no enciende" required></div><div class="field"><label>Tipo de solicitud *</label><select name="category" required><option value="">Selecciona una opción</option><option>Falla de hardware</option><option>Daño físico</option><option>Solicitud de software</option><option>Instalación de software</option><option>Anomalía</option><option>Otro</option></select></div><div class="field"><label>Prioridad *</label><select name="priority" required><option>Media</option><option>Alta</option><option>Baja</option></select></div><div class="field full-field"><label>Descripción *</label><textarea name="description" maxlength="1000" placeholder="Cuéntanos qué sucede, desde cuándo y cualquier detalle útil…" required></textarea></div></div><div class="form-actions"><button type="button" class="secondary" data-cancel>Cancelar</button><button class="primary" type="submit">Enviar reporte →</button></div></form><aside class="map-card"><div class="map-head"><h3>Selecciona el equipo *</h3><select id="lab-select"><option>Laboratorio 1</option><option>Laboratorio 2</option></select></div><div id="lab-map" class="lab-map"></div><p class="map-help">Toca el icono de la computadora que deseas reportar.</p><div id="selected-equipment" class="selected-equipment">Ningún equipo seleccionado</div></aside></div>`;
+  const drawMap=()=>{state.lab=$('#lab-select').value;const total=state.lab==='Laboratorio 1'?32:37;$('#lab-map').innerHTML=Array.from({length:total},(_,i)=>`<button type="button" class="computer ${state.selectedEquipment===`PC-${i+1}`?'selected':''}" data-pc="PC-${i+1}">PC-${String(i+1).padStart(2,'0')}</button>`).join('');$$('.computer').forEach(b=>b.onclick=()=>{state.selectedEquipment=b.dataset.pc;drawMap();$('#selected-equipment').textContent=`✓ ${state.lab} · ${state.selectedEquipment}`})};
+  $('#lab-select').onchange=()=>{state.selectedEquipment='';drawMap();$('#selected-equipment').textContent='Ningún equipo seleccionado'};drawMap();$('[data-cancel]').onclick=()=>showView('dashboard');
+  $('#report-form').onsubmit=async e=>{e.preventDefault();if(!state.selectedEquipment)return toast('Selecciona un equipo','Toca una computadora en el mapa.');const payload=Object.fromEntries(new FormData(e.target));payload.lab=state.lab;payload.equipment=state.selectedEquipment;try{const {ticket}=await request('/api/tickets',{method:'POST',body:JSON.stringify(payload)});await loadTickets();broadcast();toast('Reporte enviado',`Tu folio es ${ticket.id}`);showView('tickets')}catch(err){toast('No se pudo enviar',err.message)}};
+}
+function openTicket(id){const t=state.tickets.find(x=>x.id===id);if(!t)return;$('#modal-content').innerHTML=`<div class="modal-head"><div><span class="ticket-id">${t.id}</span><h2>${escapeHtml(t.title)}</h2><span class="badge ${statusClass(t.status)}">${t.status}</span></div><button class="close-modal">✕</button></div><div class="detail-grid"><div class="detail-box"><small>Reportado por</small><b>${escapeHtml(t.author)}</b></div><div class="detail-box"><small>Ubicación</small><b>${escapeHtml(t.lab)} · ${escapeHtml(t.equipment)}</b></div><div class="detail-box"><small>Tipo</small><b>${escapeHtml(t.category)}</b></div><div class="detail-box"><small>Prioridad</small><b>${escapeHtml(t.priority)}</b></div></div><p class="description">${escapeHtml(t.description)}</p><div class="timeline"><h3>Seguimiento</h3>${t.history.slice().reverse().map(h=>`<div class="timeline-item"><b>${escapeHtml(h.status)}</b> · ${escapeHtml(h.note)}<span>${escapeHtml(h.by)} · ${formatDate(h.at)}</span></div>`).join('')}</div>${state.user.role==='admin'?`<form id="update-form" class="update-box"><select name="status"><option ${t.status==='Recibido'?'selected':''}>Recibido</option><option ${t.status==='Atendido'?'selected':''}>Atendido</option><option ${t.status==='Finalizado'?'selected':''}>Finalizado</option></select><input name="note" placeholder="Nota de seguimiento (opcional)"><button class="primary">Actualizar</button></form>`:''}`;
+  $('#ticket-modal').classList.remove('hidden');$('.close-modal').onclick=closeModal;const form=$('#update-form');if(form)form.onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form));try{await request(`/api/tickets/${t.id}`,{method:'PATCH',body:JSON.stringify(data)});await loadTickets();broadcast();closeModal();renderCurrent();toast('Ticket actualizado',`${t.id} ahora está ${data.status}`)}catch(err){toast('No se pudo actualizar',err.message)}}
+}
+function closeModal(){$('#ticket-modal').classList.add('hidden')}
+$('#notification-button').onclick=()=>{state.notifications=0;$('#notification-dot').classList.add('hidden');toast('Notificaciones al día','Te avisaremos cuando haya nuevos movimientos.')};
+if(state.token&&state.user)startApp();
