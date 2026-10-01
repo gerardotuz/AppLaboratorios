@@ -4,11 +4,24 @@ const path = require('node:path');
 const DB_FILE = path.join(__dirname, 'data', 'db.json');
 let mongo;
 let localData;
+function configuredMongoUri() {
+  const uri = (process.env.MONGODB_URI || '').trim();
+  if (!uri) return null;
+
+  // `cluster.mongodb.net` is part of Atlas' documentation example, not a real
+  // cluster. Treating it as a connection string makes Node fail during DNS SRV
+  // lookup and prevents the web server (including its health check) from booting.
+  const placeholder = /(?:@|\.)cluster\.mongodb\.net(?:[/?]|$)/i.test(uri)
+    || /(?:USUARIO|CONTRASE(?:Ñ|N)A|<[^>]+>)/i.test(uri);
+  if (placeholder) return null;
+  return uri;
+}
 
 async function connect(seedData) {
-  if (process.env.MONGODB_URI) {
+   const mongoUri = configuredMongoUri();
+  if (mongoUri) {
     const { MongoClient } = require('mongodb');
-    const client = new MongoClient(process.env.MONGODB_URI);
+    const client = new MongoClient(mongoUri);
     await client.connect();
     const databaseName = process.env.MONGODB_DB || 'cbtis272_soporte';
     const db = client.db(databaseName);
@@ -23,7 +36,11 @@ async function connect(seedData) {
   fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
   if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify(seedData, null, 2));
   localData = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  console.warn('MONGODB_URI no configurada: usando almacenamiento JSON local.');
+    if ((process.env.MONGODB_URI || '').trim()) {
+    console.warn('MONGODB_URI contiene valores de ejemplo; se usará almacenamiento JSON local. Configura en Render la cadena real de MongoDB Atlas.');
+  } else {
+    console.warn('MONGODB_URI no configurada: usando almacenamiento JSON local.');
+  }
 }
 
 async function findUser(email) {
@@ -52,4 +69,4 @@ async function updateTicket(id, changes, historyItem) {
 function persistLocal() { fs.writeFileSync(DB_FILE, JSON.stringify(localData, null, 2)); }
 async function close() { if (mongo) await mongo.client.close(); }
 
-module.exports = { connect, findUser, findUserById, listTickets, createTicket, updateTicket, close };
+module.exports = { connect, findUser, findUserById, listTickets, createTicket, updateTicket, close, configuredMongoUri };
