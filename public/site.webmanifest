@@ -1,0 +1,17 @@
+{
+  "name": "Soporte TI CBTis 272",
+  "short_name": "Soporte 272",
+  "description": "Mesa de ayuda de los laboratorios del CBTis 272",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#123c69",
+  "icons": [
+    {
+      "src": "/aguila.png",
+      "sizes": "1080x1080",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
