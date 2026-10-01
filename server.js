@@ -139,9 +139,11 @@ async function api(req, res, url) {
     if (user.role !== 'admin') return json(res, 403, { error: 'Solo un administrador puede actualizar estados' });
     const data = await body(req); const allowed = ['Recibido','Atendido','Finalizado'];
     if (!allowed.includes(data.status)) return json(res, 400, { error: 'Estado no válido' });
+        const assignedAdmin = await database.findUserById(clean(data.assignedAdminId, 100));
+    if (!assignedAdmin || assignedAdmin.role !== 'admin' || assignedAdmin.active === false) return json(res, 400, { error: 'Selecciona un administrador activo' });
     const updatedAt = new Date().toISOString();
     const historyItem = { status: data.status, note: clean(data.note, 300) || 'Estado actualizado', by: user.name, at: updatedAt };
-    const ticket = await database.updateTicket(match[1], { status: data.status, updatedAt }, historyItem);
+     const ticket = await database.updateTicket(match[1], { status: data.status, assignedAdminId: assignedAdmin.id, assignedAdmin: assignedAdmin.name, updatedAt }, historyItem);
     if (!ticket) return json(res, 404, { error: 'Ticket no encontrado' });
     notify({ type: 'ticket-updated', ticket }); return json(res, 200, { ticket });
   }
