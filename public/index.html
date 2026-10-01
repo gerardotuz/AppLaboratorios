@@ -2,18 +2,25 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#123c69"><title>Soporte TI · CBTis 272</title>
+ <meta name="theme-color" content="#123c69">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Soporte 272">
+  <title>Soporte TI · CBTis 272</title>
+  <link rel="icon" type="image/png" href="/aguila.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div id="toast-region" aria-live="polite"></div>
   <section id="login-view" class="login-shell">
     <div class="login-brand">
-      <div class="brand-mark">272</div><div><b>CBTis 272</b><span>Mesa de ayuda</span></div>
+       <div class="brand-mark"><img src="/aguila.png" alt=""></div><div><b>CBTis 272</b><span>Mesa de ayuda</span></div>
     </div>
     <div class="welcome-copy"><span class="eyebrow">SOPORTE TECNOLÓGICO</span><h1>Tu laboratorio,<br><em>siempre funcionando.</em></h1><p>Reporta una incidencia en menos de un minuto y consulta su avance desde cualquier dispositivo.</p><div class="feature-row"><span>✓ Respuesta oportuna</span><span>✓ Seguimiento claro</span></div></div>
     <form id="login-form" class="login-card">
-      <div class="mobile-brand">CBTis <b>272</b></div><h2>Bienvenido</h2><p>Ingresa con tu cuenta institucional</p>
+     <div class="mobile-brand"><img src="/aguila.png" alt=""><span>CBTis <b>272</b></span></div><h2>Bienvenido</h2><p>Ingresa con tu cuenta institucional</p>
       <label>Correo electrónico<input id="email" type="email" autocomplete="username" placeholder="nombre@cbtis272.edu.mx" required></label>
       <label>Contraseña<div class="password-wrap"><input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required><button type="button" id="show-password" aria-label="Mostrar contraseña">◉</button></div></label>
       <div id="login-error" class="form-error" role="alert"></div><button class="primary full" type="submit">Iniciar sesión <span>→</span></button>
